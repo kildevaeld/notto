@@ -40,8 +40,9 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 		}
 
 		if r, e = execImpl(s, rootDir); e != nil {
-			err := vm.MakeCustomError("ExecError", e.Error())
-			panic(err)
+			/*err := vm.MakeCustomError("ExecError", e.Error())
+			panic(err)*/
+			vm.Throw("ExecError", e)
 		}
 
 		//m := make(map[string]interface{})

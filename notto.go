@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/kildevaeld/ottoext/fetch"
-
+	"errors"
 	"github.com/kildevaeld/ottoext/loop"
 	"github.com/kildevaeld/ottoext/promise"
 	"github.com/kildevaeld/ottoext/timers"
@@ -128,6 +128,21 @@ func (this *Notto) Require(id, pwd string) (otto.Value, error) {
 	this.moduleCache[id] = v
 
 	return v, nil
+}
+
+// Must be thrown from within the otto context
+func (this *Notto) Throw(name string, err interface{}) error {
+	var v otto.Value
+	switch s := err.(type) {
+	case string:
+		v = this.MakeCustomError(name, s)
+	case error:
+		v = this.MakeCustomError(name, s.Error())
+	default:
+		return errors.New("not a string or an error")
+	}
+	panic(v)
+	return nil
 }
 
 // Register a new module to current vm.
