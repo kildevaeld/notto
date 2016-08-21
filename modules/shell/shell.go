@@ -16,11 +16,15 @@ func Define(vm *notto.Notto, global bool) error {
 	ob.Set("echo", echoCall(vm))
 	ob.Set("exec", execCall(vm, "./"))
 	ob.Set("cd", cdCall(vm))
+	ob.Set("cat", catCall(vm))
 
 	if global {
-		vm.Set("__sh", ob)
-		vm.AddPreScript(`var echo = __sh.echo;
-			var exec = __sh.exec;
+		vm.Set("__private_sh", ob)
+		vm.AddPreScript(`var echo = __private_sh.echo;
+			var exec = __private_sh.exec;
+			var echo = __private_sh.echo;
+			var cd = __private_sh.cd;
+			var cat = __private_sh.cat;
 			`)
 	} else {
 		notto.AddModule("sh", notto.CreateLoaderFromValue(ob.Value()))

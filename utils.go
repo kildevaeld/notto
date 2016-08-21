@@ -55,6 +55,7 @@ func parsePackageEntryPoint(path string) (string, error) {
 
 // Throw a javascript error, see https://github.com/robertkrimen/otto/issues/17
 func jsException(vm *Notto, errorType, msg string) {
+	//vm.MakeCustomError(name, message)
 	value, _ := vm.Call("new "+errorType, nil, msg)
 	panic(value)
 }

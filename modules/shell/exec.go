@@ -2,7 +2,6 @@ package shell
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -41,7 +40,8 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 		}
 
 		if r, e = execImpl(s, rootDir); e != nil {
-			panic(e)
+			err := vm.MakeCustomError("ExecError", e.Error())
+			panic(err)
 		}
 
 		//m := make(map[string]interface{})
@@ -51,12 +51,6 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 		ob.Set("stdout", string(r.stdout))
 		ob.Set("pipe", pipeFn(string(r.stdout)))
 
-		/*if v, e := vm.ToValue(m); e == nil {
-			return v
-		} else {
-			fmt.Printf("error %v\n", e)
-			return otto.NullValue()
-		}*/
 		return ob.Value()
 	}
 }
@@ -76,7 +70,7 @@ func execImpl(cmd, root string) (*result, error) {
 	c.Dir = root
 	c.Env = os.Environ()
 
-	if runtime.GOOS == "linux" {
+	if runtime.GOOS == "linux" && runtime.GOOS == "darwin" {
 		u, err := user.Current()
 
 		uid, _ := strconv.Atoi(u.Uid)
@@ -84,6 +78,7 @@ func execImpl(cmd, root string) (*result, error) {
 		if err == nil {
 			c.SysProcAttr = &syscall.SysProcAttr{
 				Chroot: root,
+				//Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
 				//Setpgid:    true,
 				Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)},
 			}
@@ -92,9 +87,12 @@ func execImpl(cmd, root string) (*result, error) {
 
 	e := c.Run()
 	if ee, ok := e.(*exec.ExitError); ok {
+
 		if !ee.Success() {
-			fmt.Printf("%s", ee.String())
+			return nil, ee
 		}
+	} else if e != nil {
+		return nil, e
 	}
 	return &result{ebuf.Bytes(), sbuf.Bytes(), 0}, nil
 
