@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os/exec"
 	"os/user"
 	"runtime"
@@ -31,6 +32,10 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 		if !call.Argument(0).IsString() {
 			return otto.UndefinedValue()
 		}
+		silence := true
+		if call.Argument(1).IsBoolean() {
+			silence, _ = call.Argument(1).ToBoolean()
+		}
 
 		var s string
 		var e error
@@ -39,7 +44,7 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 			panic(e)
 		}
 
-		if r, e = execImpl(vm, s, rootDir); e != nil {
+		if r, e = execImpl(vm, s, rootDir, silence); e != nil {
 			/*err := vm.MakeCustomError("ExecError", e.Error())
 			panic(err)*/
 			vm.Throw("ExecError", e)
@@ -56,7 +61,7 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 	}
 }
 
-func execImpl(vm *notto.Notto, cmd, root string) (*result, error) {
+func execImpl(vm *notto.Notto, cmd, root string, silence bool) (*result, error) {
 
 	split := strings.Split(cmd, " ")
 
@@ -65,8 +70,17 @@ func execImpl(vm *notto.Notto, cmd, root string) (*result, error) {
 	sbuf := bytes.NewBuffer(nil)
 	ebuf := bytes.NewBuffer(nil)
 
-	c.Stderr = ebuf
-	c.Stdout = sbuf
+	var stdout io.Writer = sbuf
+	var stderr io.Writer = ebuf
+
+	if !silence {
+		attr := vm.ProcessAttr()
+		stdout = io.MultiWriter(sbuf, attr.Stdout)
+		stderr = io.MultiWriter(ebuf, attr.Stderr)
+	}
+
+	c.Stderr = stderr
+	c.Stdout = stdout
 
 	c.Dir = root
 	c.Env = vm.ProcessAttr().Environ
