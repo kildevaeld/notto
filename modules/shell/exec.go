@@ -2,7 +2,7 @@ package shell
 
 import (
 	"bytes"
-	"os"
+	"errors"
 	"os/exec"
 	"os/user"
 	"runtime"
@@ -15,9 +15,9 @@ import (
 )
 
 type result struct {
-	stderror []byte
-	stdout   []byte
-	code     int
+	stderr []byte
+	stdout []byte
+	code   int
 }
 
 func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto.Value {
@@ -39,7 +39,7 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 			panic(e)
 		}
 
-		if r, e = execImpl(s, rootDir); e != nil {
+		if r, e = execImpl(vm, s, rootDir); e != nil {
 			/*err := vm.MakeCustomError("ExecError", e.Error())
 			panic(err)*/
 			vm.Throw("ExecError", e)
@@ -48,15 +48,15 @@ func execCall(vm *notto.Notto, rootDir string) func(call otto.FunctionCall) otto
 		//m := make(map[string]interface{})
 
 		ob, _ := vm.Object("({})")
-		ob.Set("stderr", string(r.stderror))
-		ob.Set("stdout", string(r.stdout))
+		ob.Set("stderr", strings.TrimSpace(string(r.stderr)))
+		ob.Set("stdout", strings.TrimSpace(string(r.stdout)))
 		ob.Set("pipe", pipeFn(string(r.stdout)))
 
 		return ob.Value()
 	}
 }
 
-func execImpl(cmd, root string) (*result, error) {
+func execImpl(vm *notto.Notto, cmd, root string) (*result, error) {
 
 	split := strings.Split(cmd, " ")
 
@@ -69,7 +69,7 @@ func execImpl(cmd, root string) (*result, error) {
 	c.Stdout = sbuf
 
 	c.Dir = root
-	c.Env = os.Environ()
+	c.Env = vm.ProcessAttr().Environ
 
 	if runtime.GOOS == "linux" && runtime.GOOS == "darwin" {
 		u, err := user.Current()
@@ -90,7 +90,7 @@ func execImpl(cmd, root string) (*result, error) {
 	if ee, ok := e.(*exec.ExitError); ok {
 
 		if !ee.Success() {
-			return nil, ee
+			return &result{sbuf.Bytes(), sbuf.Bytes(), 0}, errors.New(string(ebuf.Bytes()))
 		}
 	} else if e != nil {
 		return nil, e

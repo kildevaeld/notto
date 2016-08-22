@@ -1,15 +1,46 @@
 package notto
 
 import (
+	"io"
+	"os"
 	"path/filepath"
+	"strings"
+
+	"errors"
 
 	"github.com/kildevaeld/ottoext/fetch"
-	"errors"
 	"github.com/kildevaeld/ottoext/loop"
 	"github.com/kildevaeld/ottoext/promise"
 	"github.com/kildevaeld/ottoext/timers"
 	"github.com/robertkrimen/otto"
 )
+
+type Environ []string
+
+func (self Environ) ToMap() map[string]string {
+	env := make(map[string]string)
+	for _, e := range self {
+		a := strings.SplitN(e, "=", 2)
+		env[a[0]] = a[1]
+	}
+	return env
+}
+
+func MapToEnviron(m map[string]string) Environ {
+	var out Environ
+	for k, v := range m {
+		out = append(out, k+"="+v)
+	}
+	return out
+}
+
+type ProcessAttr struct {
+	Environ Environ
+	Argv    []string
+	Stdout  io.Writer
+	Stderr  io.Writer
+	Cwd     string
+}
 
 // Globally registered modules
 var globalModules map[string]ModuleLoader = make(map[string]ModuleLoader)
@@ -28,6 +59,7 @@ type Notto struct {
 	moduleCache map[string]otto.Value
 	runLoop     *loop.Loop
 	preScripts  []string
+	processAttr *ProcessAttr
 }
 
 func (this *Notto) Runloop() *loop.Loop {
@@ -46,6 +78,29 @@ func (this *Notto) Init() error {
 	}
 
 	return nil
+}
+
+func (self *Notto) SetProcessAttr(attr *ProcessAttr) {
+	self.processAttr = attr
+}
+
+func (self *Notto) ProcessAttr() *ProcessAttr {
+	if self.processAttr == nil {
+		cwd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+
+		self.processAttr = &ProcessAttr{
+			Environ: os.Environ(),
+			Argv:    os.Args,
+			Cwd:     cwd,
+			Stderr:  os.Stderr,
+			Stdout:  os.Stdout,
+		}
+	}
+
+	return self.processAttr
 }
 
 func (this *Notto) AddPreScript(script string) {

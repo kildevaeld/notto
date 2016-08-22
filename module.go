@@ -33,7 +33,7 @@ func CreateLoaderFromSource(source, pwd string) ModuleLoader {
 		// Wraps the source to create a module environment
 		prerun := strings.Join(vm.preScripts, "\n;")
 
-		source = "(function(module) {var require = module.require;var exports = module.exports;" + prerun + "\n" + source + "\n})"
+		source = "(function(module) {var require = module.require;var exports = module.exports;\n" + prerun + "\n" + source + "\n})"
 
 		// Provide the "require" method in the module scope.
 		jsRequire := func(call otto.FunctionCall) otto.Value {
@@ -41,7 +41,8 @@ func CreateLoaderFromSource(source, pwd string) ModuleLoader {
 
 			moduleValue, err := vm.Require(jsModuleName, pwd)
 			if err != nil {
-				jsException(vm, "Error", "motto: "+err.Error())
+				vm.Throw("RequireError", err)
+				//jsException(vm, "Error", "motto: "+err.Error())
 			}
 
 			return moduleValue

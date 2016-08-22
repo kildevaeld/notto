@@ -35,7 +35,7 @@ func echoCall(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
 
 		ob, _ := vm.Object("({})")
 
-		fmt.Printf(str)
+		fmt.Fprintf(vm.ProcessAttr().Stdout, str+"\n")
 
 		ob.Set("pipe", func(call otto.FunctionCall) otto.Value {
 			s, e := call.Argument(0).ToString()
