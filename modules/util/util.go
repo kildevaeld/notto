@@ -17,6 +17,7 @@ func Define(vm *notto.Notto) error {
 	ob.Set("format", formatCall(vm))
 
 	vm.AddModule("util", notto.CreateLoaderFromValue(ob.Value()))
-
+	vm.AddModule("underscore", notto.CreateLoaderFromSource(string(MustAsset("underscore.js")), ""))
+	vm.AddModule("minimist", notto.CreateLoaderFromSource(string(MustAsset("minimist/index.js")), ""))
 	return nil
 }

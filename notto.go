@@ -8,10 +8,8 @@ import (
 
 	"errors"
 
-	"github.com/kildevaeld/ottoext/fetch"
-	"github.com/kildevaeld/ottoext/loop"
-	"github.com/kildevaeld/ottoext/promise"
-	"github.com/kildevaeld/ottoext/timers"
+	"github.com/kildevaeld/notto/loop"
+
 	"github.com/robertkrimen/otto"
 )
 
@@ -66,11 +64,11 @@ func (this *Notto) Runloop() *loop.Loop {
 	return this.runLoop
 }
 
-func (this *Notto) Init() error {
-	if err := timers.Define(this.Otto, this.runLoop); err != nil {
+/*func (this *Notto) Init() error {
+	if err := timers.Define(this); err != nil {
 		return err
 	}
-	if err := promise.Define(this.Otto, this.runLoop); err != nil {
+	if err := promise.Define(this); err != nil {
 		return err
 	}
 	if err := fetch.Define(this.Otto, this.runLoop); err != nil {
@@ -78,7 +76,7 @@ func (this *Notto) Init() error {
 	}
 
 	return nil
-}
+}*/
 
 func (self *Notto) SetProcessAttr(attr *ProcessAttr) {
 	self.processAttr = attr
