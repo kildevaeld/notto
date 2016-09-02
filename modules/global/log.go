@@ -58,4 +58,6 @@ func Define(vm *notto.Notto) error {
 
 		return otto.UndefinedValue()
 	})
+
+	return nil
 }
