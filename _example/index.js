@@ -1,5 +1,8 @@
 var sh = require('sh')
+var ui = require('ui');
 
+ui.input('name')
+console.log(ui)
 var test = "World"
 sh.echo("Call me").pipe('call.txt')
 setTimeout(function () {

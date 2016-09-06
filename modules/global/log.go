@@ -59,5 +59,72 @@ func Define(vm *notto.Notto) error {
 		return otto.UndefinedValue()
 	})
 
-	return nil
+	o.Set("warn", func(call otto.FunctionCall) otto.Value {
+		str := getStringList(call)
+		if attr.Stderr != nil {
+			attr.Stderr.Write([]byte(strings.Join(str, " ")))
+		}
+
+		return otto.UndefinedValue()
+	})
+
+	o.Set("dir", func(call otto.FunctionCall) otto.Value {
+		o := call.Argument(0).Object()
+
+		str := print_object(o, "", false)
+
+		if attr.Stdout != nil {
+			attr.Stdout.Write([]byte(str))
+		}
+
+		return otto.UndefinedValue()
+	})
+
+	return vm.Set("console", o)
+
+	//return nil
+}
+
+func print_object(o *otto.Object, indent string, pretty bool) string {
+	str := indent + "{"
+	if pretty {
+		str += "{\n}"
+		indent = "  "
+	} else {
+		str += " "
+	}
+
+	l := len(o.Keys())
+	for i, k := range o.Keys() {
+		str += indent + k + ": "
+		if v, e := o.Get(k); e != nil {
+			return e.Error()
+		} else {
+			if v.IsBoolean() {
+				b, _ := v.ToBoolean()
+				str += fmt.Sprintf("%v", b)
+			} else if v.IsNull() {
+				str += "null"
+			} else if v.IsString() {
+				str += "'" + v.String() + "'"
+			} else if v.IsNumber() {
+				str += v.String()
+			} else if v.IsObject() {
+				str += print_object(v.Object(), indent+"  ", pretty)
+			} else {
+				return ""
+			}
+		}
+		if i < l-1 {
+			str += ","
+		}
+		if pretty {
+			str += "\n"
+		} else {
+			str += " "
+		}
+
+	}
+	str += "}\n"
+	return str
 }

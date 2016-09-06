@@ -70,6 +70,61 @@ func CreateLoaderFromSource(source, pwd string) ModuleLoader {
 	}
 }
 
+// Create module loader from javascript source code.
+//
+// When the loader is called, the javascript source is executed in Motto.
+//
+// "pwd" indicates current working directory, which might be used to search for
+// modules.
+func CreateLoaderFromSourceWithPrivate(source, pwd string, private map[string]otto.Value) ModuleLoader {
+	return func(vm *Notto) (otto.Value, error) {
+		// Wraps the source to create a module environment
+		prerun := strings.Join(vm.preScripts, "\n;")
+
+		source = "(function(module) {var require = module.require;var exports = module.exports;\n" + prerun + "\n" + source + "\n})"
+
+		// Provide the "require" method in the module scope.
+		jsRequire := func(call otto.FunctionCall) otto.Value {
+			jsModuleName := call.Argument(0).String()
+
+			moduleValue, err := vm.Require(jsModuleName, pwd)
+			if err != nil {
+				vm.Throw("RequireError", err)
+				//jsException(vm, "Error", "motto: "+err.Error())
+			}
+
+			return moduleValue
+		}
+
+		jsModule, _ := vm.Object(`({exports: {}})`)
+		jsModule.Set("require", jsRequire)
+		jsExports, _ := jsModule.Get("exports")
+
+		if private != nil {
+
+			for k, v := range private {
+				jsModule.Set(k, v)
+			}
+
+		}
+		// Run the module source, with "jsModule" as the "module" variable, "jsExports" as "this"(Nodejs capable).
+		moduleReturn, err := vm.Call(source, jsExports, jsModule)
+		if err != nil {
+			return otto.UndefinedValue(), err
+		}
+
+		var moduleValue otto.Value
+		if !moduleReturn.IsUndefined() {
+			moduleValue = moduleReturn
+			jsModule.Set("exports", moduleValue)
+		} else {
+			moduleValue, _ = jsModule.Get("exports")
+		}
+
+		return moduleValue, nil
+	}
+}
+
 // Create module loader from javascript file.
 //
 // Filename can be a javascript file or a json file.

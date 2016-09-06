@@ -8,6 +8,8 @@ import (
 	"github.com/kildevaeld/notto/loop/looptask"
 
 	"github.com/kildevaeld/notto/modules/fetch"
+	"github.com/kildevaeld/notto/modules/global"
+	"github.com/kildevaeld/notto/modules/ui"
 	"github.com/robertkrimen/otto"
 
 	"github.com/kildevaeld/notto/modules/process"
@@ -35,12 +37,14 @@ func main() {
 	vm := notto.New()
 
 	//vm.Init()
-
+	global.Define(vm)
 	shell.Define(vm, globalShell)
 	util.Define(vm)
 	process.Define(vm)
 	promise.Define(vm)
 	fetch.Define(vm)
+	ui.Define(vm)
+
 	//env := envFromStringSlice(os.Environ(), stringSlice)
 	var env []string
 	env = append(env, os.Environ()...)
