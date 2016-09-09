@@ -6,18 +6,11 @@ import (
 	"os"
 
 	"github.com/kildevaeld/notto/loop/looptask"
+	"github.com/kildevaeld/notto/modules"
 
-	"github.com/kildevaeld/notto/modules/fetch"
-	"github.com/kildevaeld/notto/modules/global"
-	"github.com/kildevaeld/notto/modules/ui"
 	"github.com/robertkrimen/otto"
 
-	"github.com/kildevaeld/notto/modules/process"
-
 	"github.com/kildevaeld/notto"
-	"github.com/kildevaeld/notto/modules/promise"
-	"github.com/kildevaeld/notto/modules/shell"
-	"github.com/kildevaeld/notto/modules/util"
 	"github.com/kildevaeld/notto/repl"
 	"github.com/spf13/pflag"
 )
@@ -37,14 +30,15 @@ func main() {
 	vm := notto.New()
 
 	//vm.Init()
-	global.Define(vm)
+	/*global.Define(vm)
 	shell.Define(vm, globalShell)
 	util.Define(vm)
 	process.Define(vm)
 	promise.Define(vm)
 	fetch.Define(vm)
 	ui.Define(vm)
-
+	fsm.Define(vm)*/
+	modules.Define(vm)
 	//env := envFromStringSlice(os.Environ(), stringSlice)
 	var env []string
 	env = append(env, os.Environ()...)
