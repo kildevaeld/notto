@@ -29,24 +29,12 @@ func main() {
 
 	vm := notto.New()
 
-	//vm.Init()
-	/*global.Define(vm)
-	shell.Define(vm, globalShell)
-	util.Define(vm)
-	process.Define(vm)
-	promise.Define(vm)
-	fetch.Define(vm)
-	ui.Define(vm)
-	fsm.Define(vm)*/
 	modules.Define(vm)
-	//env := envFromStringSlice(os.Environ(), stringSlice)
+
 	var env []string
 	env = append(env, os.Environ()...)
 	env = append(env, stringSlice...)
 
-	/*process.DefineFunc(vm, func() (notto.Environ, []string) {
-		return env, pflag.Args()
-	})*/
 	vm.ProcessAttr().Environ = env
 	vm.ProcessAttr().Argv = pflag.Args()
 
