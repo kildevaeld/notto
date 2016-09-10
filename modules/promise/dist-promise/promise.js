@@ -17,7 +17,7 @@ var
 // 		you can starve the UI and be unresponsive to the user.
 // This is an even FASTER version of https://gist.github.com/bluejava/9b9542d1da2a164d0456 that gives up
 // passing context and arguments, in exchange for a 25x speed increase. (Use anon function to pass context/args)
-var soon = (function() {
+var soon = (function () {
 
   var fq = [], // function queue;
     fqStart = 0, // avoid using shift() by maintaining a start pointer - and remove items in chunks of 1024 (bufferSize)
@@ -36,7 +36,7 @@ var soon = (function() {
   }
 
   // run the callQueue function asyncrhonously, as fast as possible
-  var cqYield = (function() {
+  var cqYield = (function () {
 
     /*// This is the fastest way browsers have to yield processing
     if (typeof MutationObserver !== _undefinedString) {
@@ -54,19 +54,19 @@ var soon = (function() {
 
     // if No MutationObserver - this is the next best thing - handles Node and MSIE
     if (typeof setImmediate !== _undefinedString)
-      return function() {
+      return function () {
         setImmediate(callQueue)
       }
 
     // final fallback - shouldn't be used for much except very old browsers
-    return function() {
+    return function () {
       setTimeout(callQueue, 0)
     }
   })();
 
   // this is the function that will be assigned to soon
   // it takes the function to call and examines all arguments
-  return function(fn) {
+  return function (fn) {
 
     // push the function and any remaining arguments along with context
     fq.push(fn);
@@ -87,18 +87,18 @@ function Promise(func) {
   if (func) {
     var me = this;
     func(
-        function(arg) {
-          me.resolve(arg)
-        }, // the resolve function bound to this context.
-        function(arg) {
-          me.reject(arg)
-        }) // the reject function bound to this context
+      function (arg) {
+        me.resolve(arg)
+      }, // the resolve function bound to this context.
+      function (arg) {
+        me.reject(arg)
+      }) // the reject function bound to this context
   }
 }
 
 Promise.prototype = { // Add 6 functions to our prototype: "resolve", "reject", "then", "catch", "finally" and "timeout"
 
-  resolve: function(value) {
+  resolve: function (value) {
     if (this.state !== STATE_PENDING)
       return;
 
@@ -114,13 +114,13 @@ Promise.prototype = { // Add 6 functions to our prototype: "resolve", "reject", 
         if (typeof then === "function") {
           // and call the value.then (which is now in "then") with value as the context and the resolve/reject functions per thenable spec
           then.call(value,
-            function(ra) {
+            function (ra) {
               if (first) {
                 first = false;
                 me.resolve(ra);
               }
             },
-            function(rr) {
+            function (rr) {
               if (first) {
                 first = false;
                 me.reject(rr);
@@ -139,13 +139,13 @@ Promise.prototype = { // Add 6 functions to our prototype: "resolve", "reject", 
     this.v = value;
 
     if (me.c)
-      soon(function() {
+      soon(function () {
         for (var n = 0, l = me.c.length; n < l; n++)
           resolveClient(me.c[n], value);
       });
   },
 
-  reject: function(reason) {
+  reject: function (reason) {
     if (this.state !== STATE_PENDING)
       return;
 
@@ -154,16 +154,16 @@ Promise.prototype = { // Add 6 functions to our prototype: "resolve", "reject", 
 
     var clients = this.c;
     if (clients)
-      soon(function() {
+      soon(function () {
         for (var n = 0, l = clients.length; n < l; n++)
           rejectClient(clients[n], reason);
       });
     else
-    if (!Promise.suppressUncaughtRejectionError)
-      console.log("You upset Promise. Please catch rejections: ", reason, reason.stack);
+      if (!Promise.suppressUncaughtRejectionError)
+        console.log("You upset Promise. Please catch rejections: ", reason, reason.stack);
   },
 
-  then: function(onF, onR) {
+  then: function (onF, onR) {
     var p = new Promise();
     var client = {
       y: onF,
@@ -181,7 +181,7 @@ Promise.prototype = { // Add 6 functions to our prototype: "resolve", "reject", 
     {
       var s = this.state,
         a = this.v;
-      soon(function() { // we are not pending, so yield script and resolve/reject as needed
+      soon(function () { // we are not pending, so yield script and resolve/reject as needed
         if (s === STATE_FULFILLED)
           resolveClient(client, a);
         else
@@ -192,36 +192,36 @@ Promise.prototype = { // Add 6 functions to our prototype: "resolve", "reject", 
     return p;
   },
 
-  "catch": function(cfn) {
+  "catch": function (cfn) {
     return this.then(null, cfn);
   }, // convenience method
-  "finally": function(cfn) {
+  "finally": function (cfn) {
     return this.then(cfn, cfn);
   }, // convenience method
 
   // new for 1.2  - this returns a new promise that times out if original promise does not resolve/reject before the time specified.
   // Note: this has no effect on the original promise - which may still resolve/reject at a later time.
-  "timeout": function(ms, timeoutMsg) {
+  "timeout": function (ms, timeoutMsg) {
     timeoutMsg = timeoutMsg || "Timeout"
     var me = this;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
-      setTimeout(function() {
+      setTimeout(function () {
         reject(Error(timeoutMsg)); // This will fail silently if promise already resolved or rejected
       }, ms);
 
-      me.then(function(v) {
-          resolve(v)
-        }, // This will fail silently if promise already timed out
-        function(er) {
+      me.then(function (v) {
+        resolve(v)
+      }, // This will fail silently if promise already timed out
+        function (er) {
           reject(er)
         }); // This will fail silently if promise already timed out
 
     })
   }
 
-  "delay": function(ms) {
-  	return Promise.delay(ms);
+  "delay": function (ms) {
+    return Promise.delay(ms);
   }
 
 }; // END of prototype function list
@@ -252,25 +252,25 @@ function rejectClient(c, reason) {
 
 // "Class" functions follow (utility functions that live on the Promise function object itself)
 
-Promise.resolve = function(val) {
+Promise.resolve = function (val) {
   var z = new Promise();
   z.resolve(val);
   return z;
 }
 
-Promise.reject = function(err) {
+Promise.reject = function (err) {
   var z = new Promise();
   z.reject(err);
   return z;
 }
 
-Promise.delay = function(ms) {
-	return new Promise(function (resolve, reject) {
-  		setTimeout(resolve, ms||0);
-  	});
+Promise.delay = function (ms) {
+  return new Promise(function (resolve, reject) {
+  		setTimeout(resolve, ms || 0);
+  });
 }
 
-Promise.all = function(pa) {
+Promise.all = function (pa) {
   var results = [],
     rc = 0,
     retP = new Promise(); // results and resolved count
@@ -279,12 +279,12 @@ Promise.all = function(pa) {
     if (!p || typeof p.then !== "function")
       p = Promise.resolve(p);
     p.then(
-      function(yv) {
+      function (yv) {
         results[i] = yv;
         rc++;
         if (rc == pa.length) retP.resolve(results);
       },
-      function(nv) {
+      function (nv) {
         retP.reject(nv);
       }
     );
@@ -298,4 +298,30 @@ Promise.all = function(pa) {
     retP.resolve(results);
 
   return retP;
+}
+
+Promise.fromCallbackStyle = function (o, props) {
+  props = props || [];
+  var out = {};
+
+  for (var i = 0, ii = props.length; i < ii; i++) {
+    if (o[props[i]]) {
+
+      out[props[i]] = (function (ofn) {
+        return function () {
+          var args = Array.prototype.slice.call(arguments);
+          return new Promise(function (resolve, reject) {
+            var cb = function (err, result) {
+              if (err) return reject(err)
+              resolve(result);
+            }
+            args.push(cb);
+            ofn.apply(o, args);
+          });
+        }
+      })(o[props[i]])
+    }
+  }
+  
+  return out;
 }

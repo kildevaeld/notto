@@ -15,6 +15,10 @@ import (
 
 type Environ []string
 
+func (self *Environ) Add(env ...string) {
+	*self = append(*self, env...)
+}
+
 func (self Environ) ToMap() map[string]string {
 	env := make(map[string]string)
 	for _, e := range self {

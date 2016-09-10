@@ -113,9 +113,13 @@ func (t *timerTask) Execute(vm *otto.Otto, l *loop.Loop) error {
 		arguments = make([]interface{}, 1)
 	}
 
-	arguments[0] = t.call.ArgumentList[0]
+	/*arguments[0] = t.call.ArgumentList[0]
 
 	if _, err := vm.Call(`Function.call.call`, nil, arguments...); err != nil {
+		return err
+	}*/
+
+	if _, err := t.call.Argument(0).Call(otto.NullValue()); err != nil {
 		return err
 	}
 

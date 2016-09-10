@@ -81,6 +81,15 @@ func Define(vm *notto.Notto) error {
 		return otto.UndefinedValue()
 	})
 
+	s, err := vm.Compile("buffer.js", bufferSource)
+	if err != nil {
+		return err
+	}
+
+	if _, err := vm.Otto.Run(s); err != nil {
+		return err
+	}
+
 	return vm.Set("console", o)
 
 	//return nil

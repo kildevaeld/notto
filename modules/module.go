@@ -3,6 +3,7 @@ package modules
 import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/kildevaeld/notto"
+	"github.com/kildevaeld/notto/modules/crypto"
 	"github.com/kildevaeld/notto/modules/events"
 	"github.com/kildevaeld/notto/modules/fetch"
 	"github.com/kildevaeld/notto/modules/fs"
@@ -37,7 +38,7 @@ func Define(vm *notto.Notto) error {
 	result = mustError(result)(ui.Define(vm))
 	result = mustError(result)(fsm.Define(vm))
 	result = mustError(result)(events.Define(vm))
-
+	result = mustError(result)(crypto.Define(vm))
 	return result
 
 }

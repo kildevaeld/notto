@@ -259,7 +259,7 @@ Promise.all = function all(arr) {
 
   done();
 
-  return d;
+  return p;
 }
 
 Promise.race = function race(arr) {
