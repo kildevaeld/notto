@@ -4,9 +4,14 @@ import * as _ from 'underscore';
 
 export function sanitize(mod: Module, platform: string, env: string): Module {
     if (mod.phase && mod.phase.indexOf(env) == -1) {
+        //console.log(mod.name, mod.build, env, mod.phase)
         return null;
     }
     let out: Module = interpolate(mod, platform, env);
+
+    if (mod.build && !mod.image) {
+        out.image = out.name + "-image";   
+    }
 
     if (!mod.dependencies) {
         return out;
@@ -18,11 +23,13 @@ export function sanitize(mod: Module, platform: string, env: string): Module {
         if (dep == null) continue;
         out.dependencies.push(dep);
     }
+    //console.log(out.name, out.build, env)
+    
 
     return out;
 }
 
-function deepObjectExtend (target, source) {
+export function deepObjectExtend (target, source) {
     for (var prop in source) {
         if (source.hasOwnProperty(prop)) {
             if (target[prop] && typeof source[prop] === 'object') {
@@ -43,7 +50,7 @@ function interpolate(obj, platform, env) {
         if (key[0] === '$') {
             continue
         } else {
-            if (_.isObject(obj[key]) && !Array.isArray(obj[key])) {
+            if (_.isObject(obj[key]) && !Array.isArray(obj[key]) && !_.isFunction(obj[key])) {
                 out[key] = interpolate(obj[key], platform, env)
             } else {
                 out[key] = obj[key];

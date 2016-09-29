@@ -50,6 +50,7 @@ export interface Module extends Prop<Module> {
     publish: string[];
     volume: string[];
     dependencies?: Module[]
+    check?:string;
 }
 
 export type ModuleMap = { [key: string]: Module }

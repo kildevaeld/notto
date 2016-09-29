@@ -56,19 +56,19 @@ module.exports =
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(process) {"use strict";
+	"use strict";
 	var __extends = (this && this.__extends) || function (d, b) {
 	    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
 	    function __() { this.constructor = d; }
 	    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	};
-	var events_1 = __webpack_require__(3);
-	var _ = __webpack_require__(4);
-	var util_1 = __webpack_require__(5);
-	var index_1 = __webpack_require__(6);
-	var types_1 = __webpack_require__(8);
-	var config_1 = __webpack_require__(12);
-	var docker = __webpack_require__(9);
+	var events_1 = __webpack_require__(2);
+	var _ = __webpack_require__(3);
+	var util_1 = __webpack_require__(4);
+	var index_1 = __webpack_require__(5);
+	var types_1 = __webpack_require__(7);
+	var config_1 = __webpack_require__(11);
+	var docker = __webpack_require__(8);
 	(function (Notification) {
 	    Notification[Notification["Starting"] = 0] = "Starting";
 	    Notification[Notification["Started"] = 1] = "Started";
@@ -157,7 +157,7 @@ module.exports =
 	        }
 	        else {
 	            tasks = builds.map(function (m) {
-	                if (docker.hasImage(m.name, true)) {
+	                if (docker.hasImage(m.image, true)) {
 	                    return index_1.buildTask(m);
 	                }
 	                return null;
@@ -175,7 +175,7 @@ module.exports =
 	    Builder.prototype.start = function (autoBuild) {
 	        var _this = this;
 	        if (autoBuild === void 0) { autoBuild = false; }
-	        var ret = this.modules.map(function (m) { return docker.hasImage(m.build ? m.name + "-image" : m.image, true); });
+	        var ret = this.modules.map(function (m) { return docker.hasImage(m.image, true); });
 	        var tbb = ret.filter(function (m) { return m === false; });
 	        if (tbb.length > 0 && !autoBuild) {
 	            throw new Error('You have to build first');
@@ -215,8 +215,8 @@ module.exports =
 	                .then(function () {
 	                _this.emit(exports.NotificationEvent, n.Removed, m);
 	                types_1.runHook('postremove', m, true);
-	                if (images) {
-	                    return docker.removeImage(m.build ? m.name + '-image' : m.image);
+	                if (images && m.build) {
+	                    return docker.removeImage(m.image);
 	                }
 	            });
 	        });
@@ -229,15 +229,14 @@ module.exports =
 	        if (o.volume) {
 	            o.binds = o.volume;
 	        }
-	        if (mod.image) {
-	            o.image = mod.image;
-	        }
-	        else if (mod.build) {
+	        /*if (mod.build) {
+	            o.image = mod.image
+	        } else if (mod.build) {
 	            o.image = mod.name + "-image";
-	        }
-	        else {
-	            return Promise.reject(new Error("no image: " + o.name));
-	        }
+	        } else {
+	            return Promise.reject(new Error("no image: " + o.name))
+	        }*/
+	        o.image = mod.image;
 	        o.pull = true;
 	        return docker.create(o, true);
 	    };
@@ -260,12 +259,26 @@ module.exports =
 	            }
 	            if (!hasContainer) {
 	                this.emit(exports.NotificationEvent, n.Creating, mod);
+	                types_1.runHook('precreate', mod, true);
 	                this._create(mod);
 	                this.emit(exports.NotificationEvent, n.Created, mod);
+	                types_1.runHook('postcreate', mod, true);
 	            }
 	            types_1.runHook('prestart', mod, true);
 	            this.emit(exports.NotificationEvent, n.Starting, mod);
-	            docker.start(mod.name, true);
+	            docker.start(mod, true);
+	            if (mod.check) {
+	                var i_1 = docker.inspect(mod.name, true);
+	                if (!i_1)
+	                    throw new Error('container not started');
+	                var addr = i_1.NetworkSettings.IPAddress;
+	                if (process.platform == 'darwin') {
+	                    addr = dockermachine().trim();
+	                }
+	                if (!docker.check(addr + ":" + mod.check, 60)) {
+	                    throw new Error("Module " + mod.name + " timed out");
+	                }
+	            }
 	            types_1.runHook('poststart', mod, true);
 	            this.emit(exports.NotificationEvent, n.Started, mod);
 	        }
@@ -290,6 +303,9 @@ module.exports =
 	        .then(function (options) {
 	        options = config_1.sanitize(options, process.platform, env);
 	        parseModule(options, known_modules);
+	        for (var key in known_modules) {
+	            known_modules[key] = config_1.sanitize(known_modules[key], process.platform, env);
+	        }
 	        var out = [];
 	        if (options.dependencies != null) {
 	            resolveDependencies(options.dependencies, known_modules, out);
@@ -333,6 +349,12 @@ module.exports =
 	            out[key] = value;
 	        }
 	    }
+	    out.attachStdout = true;
+	    out.attachStderr = true;
+	    //stdinOnce: true,
+	    out.attachStdin = true;
+	    out.stdinOnce = true;
+	    out.openStdin = true;
 	    return out;
 	}
 	function parseModule(options, known_modules) {
@@ -340,8 +362,8 @@ module.exports =
 	    if (!known_modules[name]) {
 	        known_modules[name] = options;
 	    }
-	    else if (Object.keys(known_modules[name]).length < Object.keys(options).length) {
-	        known_modules[name] = options;
+	    else {
+	        known_modules[name] = config_1.deepObjectExtend(known_modules[name], options);
 	    }
 	    if (options.dependencies) {
 	        var deps = options.dependencies;
@@ -393,234 +415,47 @@ module.exports =
 	    }
 	}
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)))
 
 /***/ },
 /* 2 */
 /***/ function(module, exports) {
 
-	// shim for using process in browser
-	var process = module.exports = {};
-
-	// cached from whatever global is present so that test runners that stub it
-	// don't break things.  But we need to wrap it in a try catch in case it is
-	// wrapped in strict mode code which doesn't define any globals.  It's inside a
-	// function because try/catches deoptimize in certain engines.
-
-	var cachedSetTimeout;
-	var cachedClearTimeout;
-
-	function defaultSetTimout() {
-	    throw new Error('setTimeout has not been defined');
-	}
-	function defaultClearTimeout () {
-	    throw new Error('clearTimeout has not been defined');
-	}
-	(function () {
-	    try {
-	        if (typeof setTimeout === 'function') {
-	            cachedSetTimeout = setTimeout;
-	        } else {
-	            cachedSetTimeout = defaultSetTimout;
-	        }
-	    } catch (e) {
-	        cachedSetTimeout = defaultSetTimout;
-	    }
-	    try {
-	        if (typeof clearTimeout === 'function') {
-	            cachedClearTimeout = clearTimeout;
-	        } else {
-	            cachedClearTimeout = defaultClearTimeout;
-	        }
-	    } catch (e) {
-	        cachedClearTimeout = defaultClearTimeout;
-	    }
-	} ())
-	function runTimeout(fun) {
-	    if (cachedSetTimeout === setTimeout) {
-	        //normal enviroments in sane situations
-	        return setTimeout(fun, 0);
-	    }
-	    // if setTimeout wasn't available but was latter defined
-	    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
-	        cachedSetTimeout = setTimeout;
-	        return setTimeout(fun, 0);
-	    }
-	    try {
-	        // when when somebody has screwed with setTimeout but no I.E. maddness
-	        return cachedSetTimeout(fun, 0);
-	    } catch(e){
-	        try {
-	            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
-	            return cachedSetTimeout.call(null, fun, 0);
-	        } catch(e){
-	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
-	            return cachedSetTimeout.call(this, fun, 0);
-	        }
-	    }
-
-
-	}
-	function runClearTimeout(marker) {
-	    if (cachedClearTimeout === clearTimeout) {
-	        //normal enviroments in sane situations
-	        return clearTimeout(marker);
-	    }
-	    // if clearTimeout wasn't available but was latter defined
-	    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
-	        cachedClearTimeout = clearTimeout;
-	        return clearTimeout(marker);
-	    }
-	    try {
-	        // when when somebody has screwed with setTimeout but no I.E. maddness
-	        return cachedClearTimeout(marker);
-	    } catch (e){
-	        try {
-	            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
-	            return cachedClearTimeout.call(null, marker);
-	        } catch (e){
-	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
-	            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
-	            return cachedClearTimeout.call(this, marker);
-	        }
-	    }
-
-
-
-	}
-	var queue = [];
-	var draining = false;
-	var currentQueue;
-	var queueIndex = -1;
-
-	function cleanUpNextTick() {
-	    if (!draining || !currentQueue) {
-	        return;
-	    }
-	    draining = false;
-	    if (currentQueue.length) {
-	        queue = currentQueue.concat(queue);
-	    } else {
-	        queueIndex = -1;
-	    }
-	    if (queue.length) {
-	        drainQueue();
-	    }
-	}
-
-	function drainQueue() {
-	    if (draining) {
-	        return;
-	    }
-	    var timeout = runTimeout(cleanUpNextTick);
-	    draining = true;
-
-	    var len = queue.length;
-	    while(len) {
-	        currentQueue = queue;
-	        queue = [];
-	        while (++queueIndex < len) {
-	            if (currentQueue) {
-	                currentQueue[queueIndex].run();
-	            }
-	        }
-	        queueIndex = -1;
-	        len = queue.length;
-	    }
-	    currentQueue = null;
-	    draining = false;
-	    runClearTimeout(timeout);
-	}
-
-	process.nextTick = function (fun) {
-	    var args = new Array(arguments.length - 1);
-	    if (arguments.length > 1) {
-	        for (var i = 1; i < arguments.length; i++) {
-	            args[i - 1] = arguments[i];
-	        }
-	    }
-	    queue.push(new Item(fun, args));
-	    if (queue.length === 1 && !draining) {
-	        runTimeout(drainQueue);
-	    }
-	};
-
-	// v8 likes predictible objects
-	function Item(fun, array) {
-	    this.fun = fun;
-	    this.array = array;
-	}
-	Item.prototype.run = function () {
-	    this.fun.apply(null, this.array);
-	};
-	process.title = 'browser';
-	process.browser = true;
-	process.env = {};
-	process.argv = [];
-	process.version = ''; // empty string to avoid regexp issues
-	process.versions = {};
-
-	function noop() {}
-
-	process.on = noop;
-	process.addListener = noop;
-	process.once = noop;
-	process.off = noop;
-	process.removeListener = noop;
-	process.removeAllListeners = noop;
-	process.emit = noop;
-
-	process.binding = function (name) {
-	    throw new Error('process.binding is not supported');
-	};
-
-	process.cwd = function () { return '/' };
-	process.chdir = function (dir) {
-	    throw new Error('process.chdir is not supported');
-	};
-	process.umask = function() { return 0; };
-
+	module.exports = require("events");
 
 /***/ },
 /* 3 */
 /***/ function(module, exports) {
 
-	module.exports = require("events");
+	module.exports = require("underscore");
 
 /***/ },
 /* 4 */
 /***/ function(module, exports) {
 
-	module.exports = require("underscore");
-
-/***/ },
-/* 5 */
-/***/ function(module, exports) {
-
 	module.exports = require("util");
 
 /***/ },
-/* 6 */
+/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	function __export(m) {
 	    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 	}
-	__export(__webpack_require__(7));
+	__export(__webpack_require__(6));
+	__export(__webpack_require__(9));
 	__export(__webpack_require__(10));
-	__export(__webpack_require__(11));
 
 
 /***/ },
-/* 7 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(process) {"use strict";
+	"use strict";
 	var builder_1 = __webpack_require__(1);
-	var types_1 = __webpack_require__(8);
-	var _ = __webpack_require__(4);
-	var docker = __webpack_require__(9);
+	var types_1 = __webpack_require__(7);
+	var _ = __webpack_require__(3);
+	var docker = __webpack_require__(8);
 	function buildTask(mod) {
 	    return new BuildTask(mod);
 	}
@@ -633,7 +468,7 @@ module.exports =
 	    BuildTask.prototype.run = function (builder, env) {
 	        var _this = this;
 	        var options = this._getBuildOptions(this.mod, env);
-	        console.log('run this');
+	        options.name = this.mod.image;
 	        return types_1.runHook('prebuild', this.mod)
 	            .then(function (e) {
 	            return docker.build(options);
@@ -679,17 +514,16 @@ module.exports =
 	                out[key] = value;
 	            }
 	        }
-	        out.name = this.mod.name + "-image";
+	        //out.name = this.mod.name + "-image";
 	        return out;
 	    };
 	    return BuildTask;
 	}());
 	exports.BuildTask = BuildTask;
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)))
 
 /***/ },
-/* 8 */
+/* 7 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -747,19 +581,19 @@ module.exports =
 
 
 /***/ },
-/* 9 */
+/* 8 */
 /***/ function(module, exports) {
 
 	module.exports = require("docker");
 
 /***/ },
-/* 10 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(process) {"use strict";
+	"use strict";
 	var builder_1 = __webpack_require__(1);
-	var _ = __webpack_require__(4);
-	var docker = __webpack_require__(9);
+	var _ = __webpack_require__(3);
+	var docker = __webpack_require__(8);
 	function createTask(mod) {
 	    return new CreateTask(mod);
 	}
@@ -832,15 +666,14 @@ module.exports =
 	}());
 	exports.CreateTask = CreateTask;
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)))
 
 /***/ },
-/* 11 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var builder_1 = __webpack_require__(1);
-	var docker = __webpack_require__(9);
+	var docker = __webpack_require__(8);
 	function startTask(mod) {
 	    return new StartTask(mod);
 	}
@@ -853,6 +686,18 @@ module.exports =
 	    StartTask.prototype.run = function (builder, env) {
 	        var _this = this;
 	        return docker.start(this.mod.name).then(function (e) { return builder_1.TaskState.Success; })
+	            .then(function (e) {
+	            if (!_this.mod.check) {
+	                return e;
+	            }
+	            var i = docker.inspect(_this.mod.name, true);
+	            if (!i)
+	                throw new Error('container not started');
+	            if (!docker.check(i.NetworkSettings.IPAddress + ":" + _this.mod.check, 60)) {
+	                throw new Error("Module " + _this.mod.name + " timed out");
+	            }
+	            return e;
+	        })
 	            .catch(function (e) {
 	            throw new Error("start " + _this.mod.name + ": " + e);
 	        });
@@ -863,16 +708,20 @@ module.exports =
 
 
 /***/ },
-/* 12 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var _ = __webpack_require__(4);
+	var _ = __webpack_require__(3);
 	function sanitize(mod, platform, env) {
 	    if (mod.phase && mod.phase.indexOf(env) == -1) {
+	        //console.log(mod.name, mod.build, env, mod.phase)
 	        return null;
 	    }
 	    var out = interpolate(mod, platform, env);
+	    if (mod.build && !mod.image) {
+	        out.image = out.name + "-image";
+	    }
 	    if (!mod.dependencies) {
 	        return out;
 	    }
@@ -883,6 +732,7 @@ module.exports =
 	            continue;
 	        out.dependencies.push(dep);
 	    }
+	    //console.log(out.name, out.build, env)
 	    return out;
 	}
 	exports.sanitize = sanitize;
@@ -899,6 +749,7 @@ module.exports =
 	    }
 	    return target;
 	}
+	exports.deepObjectExtend = deepObjectExtend;
 	function interpolate(obj, platform, env) {
 	    var out = {};
 	    for (var key in obj) {
@@ -906,7 +757,7 @@ module.exports =
 	            continue;
 	        }
 	        else {
-	            if (_.isObject(obj[key]) && !Array.isArray(obj[key])) {
+	            if (_.isObject(obj[key]) && !Array.isArray(obj[key]) && !_.isFunction(obj[key])) {
 	                out[key] = interpolate(obj[key], platform, env);
 	            }
 	            else {

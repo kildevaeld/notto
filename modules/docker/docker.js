@@ -24,9 +24,13 @@ exports.build = function (options, sync) {
 }
 
 exports.start = function (name, sync) {
-    return wrap('Start', {
-        name: name
-    }, sync);
+    var options = {}
+    if (typeof name === 'function') {
+        options.name = name
+    } else {
+        options = name;
+    }
+    return wrap('Start', options, sync);
 }
 
 exports.exec = function (options, sync) {
@@ -45,7 +49,8 @@ exports.stop = function (name, sync) {
 
 exports.removeImage = function (nameOrId, sync) {
     return wrap("RemoveImage", {
-        name: nameOrId
+        name: nameOrId,
+        force: true
     }, sync)
 }
 
@@ -74,3 +79,13 @@ exports.isRunning = function (nameOrId, sync) {
         name: nameOrId
     }, sync)
 }
+
+exports.inspect = function (nameOrId, sync) {
+    return wrap('Inspect', {
+        name: nameOrId
+    }, sync);
+}
+
+exports.check = function (addr, count) {
+    return docker.Check(addr, count||10);
+}  

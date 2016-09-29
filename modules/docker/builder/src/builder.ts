@@ -3,9 +3,9 @@ import * as _ from 'underscore';
 import {format} from 'util';
 import {BuildTask, buildTask, createTask, CreateTask, startTask} from './tasks/index';
 import {IPromise, eachAsyncMap, PromiseConstructor, eachAsync, ModuleMap, Module, runHook} from './types'
-import {sanitize} from './config'
-declare var Promise: PromiseConstructor
+import {sanitize, deepObjectExtend} from './config'
 
+declare var Promise: PromiseConstructor
 const docker = require('docker')
 
 export enum Notification {
@@ -91,44 +91,44 @@ export class Builder extends EventEmitter {
             tasks = builds.map(m => buildTask(m));
         } else {
             tasks = builds.map(m => {
-                if (docker.hasImage(m.name, true)) {
+                if (docker.hasImage(m.image, true)) {
                     return buildTask(m);
                 }
                 return null
             }).filter(m => m != null);
-            
+
         }
 
         if (tasks.length == 0) return Promise.resolve(TaskState.Skipping);
 
         this.emit(NotificationEvent, n.Building, tasks.map(m => m.mod));
         return Promise.all(tasks.map(m => m.run(this, this.env)))
-                .then(states => {
-                    this.emit(NotificationEvent, n.Build, builds.map)
-                    return TaskState.Success;
-                });
+            .then(states => {
+                this.emit(NotificationEvent, n.Build, builds.map)
+                return TaskState.Success;
+            });
     }
 
-    
+
 
     start(autoBuild: boolean = false) {
-        let ret = this.modules.map(m => docker.hasImage(m.build ? m.name + "-image" : m.image, true));
+        let ret = this.modules.map(m => docker.hasImage(m.image, true));
         let tbb = ret.filter(m => m === false);
         if (tbb.length > 0 && !autoBuild) {
             throw new Error('You have to build first');
         } else if (tbb.length > 0) {
-            
+
             return this.build()
-            .then(() => { this._start() })
+                .then(() => { this._start() })
         }
         return Promise.resolve<any>(this._start())
 
-       
+
     }
 
     stop() {
         return new Promise((resolve, reject) => {
-            this.modules.forEach( m => {
+            this.modules.forEach(m => {
                 if (!docker.isRunning(m.name, true)) return;
                 this.emit(NotificationEvent, n.Stopping, m)
                 runHook('prestop', m, true);
@@ -137,25 +137,25 @@ export class Builder extends EventEmitter {
                 runHook('poststop', m, true);
             });
         });
-        
+
     }
 
-    remove(force:boolean = false, images: boolean = false) {
-        let c = this.modules.map( m => docker.hasContainer(m.name, true));
+    remove(force: boolean = false, images: boolean = false) {
+        let c = this.modules.map(m => docker.hasContainer(m.name, true));
 
-        c = c.map( (m,i) => {
+        c = c.map((m, i) => {
             if (m == false) return Promise.resolve();
             m = this.modules[i];
             this.emit(NotificationEvent, n.Removing, m)
             runHook('preremove', m, true);
             return docker.remove(m.name, force)
-            .then(() => {
-                this.emit(NotificationEvent, n.Removed, m);
-                runHook('postremove', m, true);
-                if (images) {
-                    return docker.removeImage(m.build ? m.name + '-image' : m.image)
-                }
-            });
+                .then(() => {
+                    this.emit(NotificationEvent, n.Removed, m);
+                    runHook('postremove', m, true);
+                    if (images && m.build) {
+                        return docker.removeImage(m.image)
+                    }
+                });
         })
         return Promise.all(c);
 
@@ -169,13 +169,14 @@ export class Builder extends EventEmitter {
             o.binds = o.volume
         }
 
-        if (mod.image) {
+        /*if (mod.build) {
             o.image = mod.image
         } else if (mod.build) {
             o.image = mod.name + "-image";
         } else {
             return Promise.reject(new Error("no image: " + o.name))
-        }
+        }*/
+        o.image = mod.image;
         o.pull = true
 
         return docker.create(o, true);
@@ -183,7 +184,7 @@ export class Builder extends EventEmitter {
     }
 
     _start() {
-    
+
         for (let i = 0, ii = this.modules.length; i < ii; i++) {
             let mod = this.modules[i];
             if (mod.phase) {
@@ -206,13 +207,28 @@ export class Builder extends EventEmitter {
             }
             if (!hasContainer) {
                 this.emit(NotificationEvent, n.Creating, mod);
-                
+                runHook('precreate', mod, true)
                 this._create(mod);
                 this.emit(NotificationEvent, n.Created, mod);
+                runHook('postcreate', mod, true)
             }
+
             runHook('prestart', mod, true)
             this.emit(NotificationEvent, n.Starting, mod);
-            docker.start(mod.name, true)
+            docker.start(mod, true)
+            if (mod.check) {
+                let i = docker.inspect(mod.name, true);
+                if (!i) throw new Error('container not started');
+                let addr = i.NetworkSettings.IPAddress;
+                
+                if (process.platform == 'darwin') {
+                
+                    addr = dockermachine().trim();
+                }
+                if (!docker.check(addr + ":" + mod.check, 60)) {
+                    throw new Error("Module " + mod.name + " timed out")
+                }
+            }
             runHook('poststart', mod, true)
             this.emit(NotificationEvent, n.Started, mod);
         }
@@ -238,8 +254,14 @@ export function createBuilder(mod: Module | (() => Module | IPromise<Module>), e
             return options;
         })
         .then(function (options) {
+
             options = sanitize(options, process.platform, env)
+
             parseModule(options, known_modules)
+
+            for (let key in known_modules) {
+                known_modules[key] = sanitize(known_modules[key], process.platform, env)
+            }
 
             var out = [];
             if (options.dependencies != null) {
@@ -257,7 +279,7 @@ export function createBuilder(mod: Module | (() => Module | IPromise<Module>), e
 
 
 function getCreateOptions(builder: Builder, mod: Module, env: string) {
-    var out = {}
+    var out: any = {}
     var exclude = ['name', 'postrun', 'prerun', 'prebuild', 'postbuild',
         'build', 'dependencies', 'phase', 'prestart', 'poststart', 'initialize']
     if (mod.phase) {
@@ -289,6 +311,13 @@ function getCreateOptions(builder: Builder, mod: Module, env: string) {
             out[key] = value
         }
     }
+
+    out.attachStdout = true
+    out.attachStderr = true
+    //stdinOnce: true,
+    out.attachStdin = true;
+    out.stdinOnce = true
+    out.openStdin = true
     return out;
 }
 
@@ -296,9 +325,11 @@ function parseModule(options: Module, known_modules: { [key: string]: Module }) 
     var name = options.name;
 
     if (!known_modules[name]) {
+
         known_modules[name] = options;
-    } else if (Object.keys(known_modules[name]).length < Object.keys(options).length) {
-        known_modules[name] = options;
+    } else /*if (Object.keys(known_modules[name]).length < Object.keys(options).length)*/ {
+
+        known_modules[name] = deepObjectExtend(known_modules[name], options);
     }
     if (options.dependencies) {
         var deps = options.dependencies
@@ -329,6 +360,7 @@ function resolveDependencies(dependencies: Module[], known_modules: { [key: stri
             })
 
             if (!found) out.push(known_modules[mod.name]);
+
             continue;
         }
 

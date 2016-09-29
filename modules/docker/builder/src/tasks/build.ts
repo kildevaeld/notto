@@ -14,7 +14,8 @@ export class BuildTask implements ITask {
     run(builder: Builder, env: string): IPromise<TaskState>  {
 
         let options = this._getBuildOptions(this.mod, env);
-        console.log('run this')
+        options.name = this.mod.image;
+        
         return runHook('prebuild', this.mod)
         .then( e => {
             return docker.build(options);
@@ -63,7 +64,7 @@ export class BuildTask implements ITask {
             }
         }
 
-        out.name = this.mod.name + "-image";
+        //out.name = this.mod.name + "-image";
 
         return out;
     }

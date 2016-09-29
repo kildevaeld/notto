@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,9 +144,12 @@ func getEnv(o *otto.Object) ([]string, error) {
 }
 
 func getStringSlice(o *otto.Object, prop string) ([]string, error) {
+
 	if cmd, err := o.Get(prop); err == nil {
+
 		var c string
 		if cmd.Class() == "Array" {
+
 			if cc, err := cmd.Object().Call("join", " "); err != nil {
 				return nil, err
 			} else {
@@ -177,8 +181,16 @@ func getCreateOptions(o *otto.Object) (dockerclient.CreateContainerOptions, erro
 	if cfg.Cmd, err = getStringSlice(o, "cmd"); err != nil {
 		return out, err
 	}
+	if cfg.Cmd != nil && len(cfg.Cmd) == 0 {
+		cfg.Cmd = nil
+	}
+
 	if cfg.Entrypoint, err = getStringSlice(o, "entrypoint"); err != nil {
 		return out, err
+	}
+
+	if cfg.Entrypoint != nil && len(cfg.Entrypoint) == 0 {
+		cfg.Entrypoint = nil
 	}
 
 	cfg.WorkingDir = stringOr(o, "workingDir", "")
@@ -196,10 +208,11 @@ func getCreateOptions(o *otto.Object) (dockerclient.CreateContainerOptions, erro
 
 	out.Config = &cfg
 
-	hcfg := dockerclient.HostConfig{}
+	hcfg := &dockerclient.HostConfig{}
 
 	hcfg.AutoRemove = boolOr(o, "autoRemove", false)
 	hcfg.PublishAllPorts = boolOr(o, "publishAllPorts", false)
+	hcfg.Privileged = boolOr(o, "previleged", false)
 	if hcfg.Binds, err = getStringSlice(o, "binds"); err != nil {
 		return out, err
 	}
@@ -208,7 +221,12 @@ func getCreateOptions(o *otto.Object) (dockerclient.CreateContainerOptions, erro
 		return out, err
 	}
 
+	if hcfg.Binds, err = getStringSlice(o, "volumes"); err != nil {
+		return out, err
+	}
+
 	if v, e := getStringSlice(o, "publish"); e == nil {
+
 		p := make(map[dockerclient.Port][]dockerclient.PortBinding)
 		for _, k := range v {
 			s := strings.Split(k, ":")
@@ -217,12 +235,18 @@ func getCreateOptions(o *otto.Object) (dockerclient.CreateContainerOptions, erro
 			}
 			p[dockerclient.Port(s[0]+"/tcp")] = []dockerclient.PortBinding{dockerclient.PortBinding{
 				HostPort: s[1],
+				HostIP:   "0.0.0.0",
 			}}
+
 		}
+		//hcfg.PublishAllPorts = true
 		hcfg.PortBindings = p
+
 	}
 
-	out.HostConfig = &hcfg
+	out.HostConfig = hcfg
+	out.Config.ExposedPorts = map[dockerclient.Port]struct{}{
+		"3306/tcp": {}}
 
 	return out, nil
 
@@ -262,12 +286,17 @@ func getContextPath(path string) (io.Reader, error) {
 			dockerfileFound = true
 		}
 
+		if file.IsDir() {
+			return nil
+		}
+
 		tr.WriteHeader(&tar.Header{
 			Name:       p,
 			Size:       file.Size(),
 			ModTime:    file.ModTime(),
 			AccessTime: t,
 			ChangeTime: t,
+			Mode:       int64(file.Mode()),
 		})
 
 		if b, e := ioutil.ReadFile(fp); e != nil {
@@ -280,7 +309,7 @@ func getContextPath(path string) (io.Reader, error) {
 	})
 
 	if !dockerfileFound {
-		return nil, errors.New("No dockerfiles")
+		return nil, errors.New("No dockerfiles in " + path)
 	}
 
 	return inputbuf, err
@@ -314,18 +343,23 @@ func (self *docker_p) create(call otto.FunctionCall) (*dockerclient.Container, e
 
 	o, err := getCreateOptions(obj)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create: %s", err)
 	}
 
 	pull := boolOr(obj, "pull", false)
 
 	if !self.has_image(o.Config.Image) && pull {
-		self.client.PullImage(dockerclient.PullImageOptions{Repository: o.Config.Image}, dockerclient.AuthConfiguration{})
+		split := strings.Split(o.Config.Image, ":")
+		o := dockerclient.PullImageOptions{Repository: split[0]}
+		if len(split) == 2 {
+			o.Tag = split[1]
+		}
+		self.client.PullImage(o, dockerclient.AuthConfiguration{})
 
 	}
 
 	if c, e := self.client.CreateContainer(o); e != nil {
-		return nil, e
+		return nil, fmt.Errorf("create: %s - %s:  %s", o.Name, o.Config.Image, e)
 	} else {
 		return c, nil
 	}
@@ -486,8 +520,9 @@ func (self *docker_p) check_args(call otto.FunctionCall) error {
 	return nil
 }
 
-func (self *docker_p) start(name string) error {
-	return self.client.StartContainer(name, &dockerclient.HostConfig{})
+func (self *docker_p) start(name string, config *dockerclient.HostConfig) error {
+
+	return self.client.StartContainer(name, config)
 }
 
 func (self *docker_p) Start(call otto.FunctionCall) otto.Value {
@@ -495,7 +530,12 @@ func (self *docker_p) Start(call otto.FunctionCall) otto.Value {
 	name := mustValue(call.Argument(0).Object().Get("name")).String()
 	sync := boolOrFale(call.Argument(1))
 	if sync {
-		if err := self.start(name); err != nil {
+		o, e := getCreateOptions(call.Argument(0).Object())
+		if e != nil {
+			self.vm.Throw("DockerError", e)
+		}
+
+		if err := self.start(name, o.HostConfig); err != nil {
 			self.vm.Throw("DockerError", err)
 		}
 		return otto.UndefinedValue()
@@ -759,6 +799,45 @@ func (self *docker_p) IsRunning(call otto.FunctionCall) otto.Value {
 	return otto.UndefinedValue()
 }
 
+func (self *docker_p) Inspect(call otto.FunctionCall) otto.Value {
+	o := call.Argument(0).Object()
+	name := mustValue(o.Get("name")).String()
+	sync := boolOrFale(call.Argument(1))
+	if sync {
+
+		i, err := self.client.InspectContainer(name)
+		if err != nil {
+			return otto.NullValue()
+		}
+
+		if val, err := self.vm.ToValue(i); err != nil {
+			self.vm.Throw("TypeError", err)
+		} else {
+			return val
+		}
+	}
+
+	task := self.getTask("is_running", call.Argument(1))
+
+	go func() {
+		defer self.vm.Runloop().Ready(task)
+		if task.err = self.check_args(call); task.err != nil {
+			return
+		}
+
+		i, err := self.client.InspectContainer(name)
+
+		if err != nil {
+			task.result = false
+		} else {
+			task.result = i.State.Running
+		}
+
+	}()
+
+	return otto.UndefinedValue()
+}
+
 func (self *docker_p) ListContainers(call otto.FunctionCall) otto.Value {
 	task := self.getTask("list_containers", call.Argument(1))
 
@@ -801,6 +880,28 @@ func (self *docker_p) ListImages(call otto.FunctionCall) otto.Value {
 	}()
 
 	return otto.UndefinedValue()
+}
+
+func (self *docker_p) Check(addr string, c int) bool {
+
+	count := 0
+	for {
+
+		conn, err := net.Dial("tcp", addr)
+		if err == nil {
+			conn.Close()
+			return true
+		}
+
+		count++
+		if count == c {
+			return false
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	return false
 }
 
 type DockerOptions struct {

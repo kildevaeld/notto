@@ -81,6 +81,9 @@ func Define(vm *notto.Notto) error {
 	err = _set(result)(o.Set("readdir", readdir(vm)))
 	err = _set(result)(o.Set("rename", rename(vm)))
 	err = _set(result)(o.Set("stat", stat(vm)))
+	err = _set(result)(o.Set("unlink", stat(vm)))
+	err = _set(result)(o.Set("writeFile", writefile(vm)))
+	err = _set(result)(o.Set("mkdir", mkdir(vm)))
 	if err != nil {
 		return err
 	}
@@ -88,6 +91,43 @@ func Define(vm *notto.Notto) error {
 	vm.AddModule("__private_fs", notto.CreateLoaderFromValue(o.Value()))
 	vm.AddModule("fs", notto.CreateLoaderFromSource(string(MustAsset("fs.js")), ""))
 	return nil
+}
+
+func writefile(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
+	return func(call otto.FunctionCall) otto.Value {
+		source := call.Argument(1).String()
+		target := call.Argument(0).String()
+		t := &fs_task{
+			cb: call.Argument(2),
+		}
+
+		vm.Runloop().Add(t)
+		go func() {
+			defer vm.Runloop().Ready(t)
+			t.err = ioutil.WriteFile(target, []byte(source), 0755)
+		}()
+
+		return otto.UndefinedValue()
+	}
+}
+
+func mkdir(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
+	return func(call otto.FunctionCall) otto.Value {
+
+		source := call.Argument(0).String()
+
+		t := &fs_task{
+			cb: call.Argument(1),
+		}
+
+		vm.Runloop().Add(t)
+		go func() {
+			defer vm.Runloop().Ready(t)
+			t.err = os.MkdirAll(source, 0755)
+		}()
+
+		return otto.UndefinedValue()
+	}
 }
 
 func stat(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
@@ -183,6 +223,26 @@ func rename(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
 		go func() {
 			defer vm.Runloop().Ready(t)
 			t.err = os.Rename(source, target)
+		}()
+
+		return otto.UndefinedValue()
+
+	}
+}
+
+func unlink(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
+	return func(call otto.FunctionCall) otto.Value {
+
+		source := call.Argument(0).String()
+
+		t := &fs_task{
+			cb: call.Argument(2),
+		}
+
+		vm.Runloop().Add(t)
+		go func() {
+			defer vm.Runloop().Ready(t)
+			t.err = os.Remove(source)
 		}()
 
 		return otto.UndefinedValue()

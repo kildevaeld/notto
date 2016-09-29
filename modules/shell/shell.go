@@ -3,11 +3,11 @@ package shell
 import "github.com/kildevaeld/notto"
 
 func Define(vm *notto.Notto, global bool) error {
-	if v, err := vm.Get("__private_sh"); err != nil {
+	/*if v, err := vm.Get("__private_sh"); err != nil {
 		return err
 	} else if !v.IsUndefined() {
 		return nil
-	}
+	}*/
 
 	ob, e := vm.Object("({})")
 	if e != nil {
@@ -27,7 +27,7 @@ func Define(vm *notto.Notto, global bool) error {
 			var cat = __private_sh.cat;
 			`)
 	} else {
-		notto.AddModule("sh", notto.CreateLoaderFromValue(ob.Value()))
+		notto.AddModule("shell", notto.CreateLoaderFromValue(ob.Value()))
 	}
 
 	return nil
