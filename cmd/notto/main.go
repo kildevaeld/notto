@@ -7,6 +7,7 @@ import (
 
 	"github.com/kildevaeld/notto/loop/looptask"
 	"github.com/kildevaeld/notto/modules"
+	"github.com/kildevaeld/notto/modules/docker"
 
 	"github.com/robertkrimen/otto"
 
@@ -30,7 +31,7 @@ func main() {
 	vm := notto.New()
 
 	modules.Define(vm)
-
+	docker.Define(vm, nil)
 	var env []string
 	env = append(env, os.Environ()...)
 	env = append(env, stringSlice...)

@@ -2,6 +2,7 @@
 var __private_ui = module.__private_ui;
 
 var ui = {
+    Process: __private_ui.process,
     input: function (msg) {
         return __private_ui.form({
             type: 'input',

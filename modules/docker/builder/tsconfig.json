@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "noImplicitAny": false,
+        "sourceMap": false,
+        "outDir": "lib"
+        
+    },
+    "exclude": [
+        "node_modules"
+    ],
+    "files": [
+        "src/index.ts",
+        "src/types.ts",
+        "src/builder.ts",
+        "src/config.ts",
+        "src/tasks/build.ts",
+        "src/tasks/create.ts",
+        "src/tasks/start.ts",
+        "src/tasks/index.ts"
+    ]
+}

@@ -119,6 +119,9 @@ var EventEmitter = (function () {
             this._executeListener(calls, args);
         return this;
     };
+
+    EventEmitter.prototype.emit = EventEmitter.prototype.trigger;
+
     EventEmitter.prototype._executeListener = function (func, args) {
         var executor = callFunc;
         if (this.constructor.executeListenerFunction) {
