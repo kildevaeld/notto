@@ -214,6 +214,9 @@ func FindFileModule(name, pwd string, paths []string) (string, error) {
 		}
 
 		if ok {
+			if filepath.IsAbs(v) {
+				return v, nil
+			}
 			return filepath.Abs(v)
 		}
 	}

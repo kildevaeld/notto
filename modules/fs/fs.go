@@ -80,6 +80,7 @@ func Define(vm *notto.Notto) error {
 	err = _set(result)(o.Set("readFile", readFile(vm)))
 	err = _set(result)(o.Set("readdir", readdir(vm)))
 	err = _set(result)(o.Set("rename", rename(vm)))
+	err = _set(result)(o.Set("stat", stat(vm)))
 	if err != nil {
 		return err
 	}
@@ -87,6 +88,31 @@ func Define(vm *notto.Notto) error {
 	vm.AddModule("__private_fs", notto.CreateLoaderFromValue(o.Value()))
 	vm.AddModule("fs", notto.CreateLoaderFromSource(string(MustAsset("fs.js")), ""))
 	return nil
+}
+
+func stat(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {
+	return func(call otto.FunctionCall) otto.Value {
+		//cwd := vm.ProcessAttr().Cwd
+		source := call.Argument(0).String()
+
+		t := &fs_task{
+			cb: call.Argument(1),
+		}
+
+		vm.Runloop().Add(t)
+		go func() {
+			defer vm.Runloop().Ready(t)
+
+			bs, err := os.Stat(source)
+			if err != nil {
+				t.err = err
+			} else {
+				t.content = bs
+			}
+		}()
+
+		return otto.UndefinedValue()
+	}
 }
 
 func readFile(vm *notto.Notto) func(call otto.FunctionCall) otto.Value {

@@ -28,3 +28,12 @@ exports.rename = function(source, target) {
         })
     })
 }
+
+exports.stat = function (source) {
+    return new Promise(function (resolve, reject) {
+        fs.stat(source, function (err, result) {
+            if (err) return reject(err)
+            resolve(result);
+        })
+    })
+}

@@ -1,6 +1,7 @@
 package process
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/kildevaeld/notto"
@@ -39,6 +40,9 @@ func DefineFunc(vm *notto.Notto, fn func() (notto.Environ, []string)) error {
 				return stringToValue(attr.Cwd)
 			},
 			"platform": runtime.GOOS,
+			"exit": func(call otto.FunctionCall) {
+				os.Exit(0)
+			},
 		})
 
 		return v
@@ -63,5 +67,8 @@ func Define(vm *notto.Notto) error {
 			return stringToValue(attr.Cwd)
 		},
 		"platform": runtime.GOOS,
+		"exit": func(n int) {
+			os.Exit(n)
+		},
 	})
 }
