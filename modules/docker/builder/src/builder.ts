@@ -222,8 +222,7 @@ export class Builder extends EventEmitter {
                 let addr = i.NetworkSettings.IPAddress;
                 
                 if (process.platform == 'darwin') {
-                
-                    addr = dockermachine().trim();
+                    addr = module.__machine().trim();
                 }
                 if (!docker.check(addr + ":" + mod.check, 60)) {
                     throw new Error("Module " + mod.name + " timed out")

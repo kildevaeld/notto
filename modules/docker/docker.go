@@ -105,13 +105,30 @@ func Define(vm *notto.Notto, options *DockerOptions) error {
 		return v
 	})
 
+	machine := func() string {
+		c := exec.Command("docker-machine", "ip")
+		out := bytes.NewBuffer(nil)
+		c.Stdout = out
+		c.Run()
+		return string(out.Bytes())
+	}
+
+	cmachine, merr := vm.ToValue(machine)
+	if merr != nil {
+		return merr
+	}
+
 	d := make(map[string]otto.Value)
 	d["__docker"] = o.Value()
+
 	source := MustAsset("docker.js")
 	loader := notto.CreateLoaderFromSourceWithPrivate(string(source), "", d)
 
 	vm.AddModule("docker", loader)
-	vm.AddModule("docker.builder", notto.CreateLoaderFromSource(string(MustAsset("builder.js")), ""))
+	p := make(map[string]otto.Value)
+	p["__machine"] = cmachine
+	loader = notto.CreateLoaderFromSourceWithPrivate(string(MustAsset("builder.js")), "", p)
+	vm.AddModule("docker.builder", loader)
 
 	return nil
 }

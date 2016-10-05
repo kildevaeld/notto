@@ -56,19 +56,19 @@ module.exports =
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
-	"use strict";
+	/* WEBPACK VAR INJECTION */(function(module) {"use strict";
 	var __extends = (this && this.__extends) || function (d, b) {
 	    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
 	    function __() { this.constructor = d; }
 	    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	};
-	var events_1 = __webpack_require__(2);
-	var _ = __webpack_require__(3);
-	var util_1 = __webpack_require__(4);
-	var index_1 = __webpack_require__(5);
-	var types_1 = __webpack_require__(7);
-	var config_1 = __webpack_require__(11);
-	var docker = __webpack_require__(8);
+	var events_1 = __webpack_require__(3);
+	var _ = __webpack_require__(4);
+	var util_1 = __webpack_require__(5);
+	var index_1 = __webpack_require__(6);
+	var types_1 = __webpack_require__(8);
+	var config_1 = __webpack_require__(12);
+	var docker = __webpack_require__(9);
 	(function (Notification) {
 	    Notification[Notification["Starting"] = 0] = "Starting";
 	    Notification[Notification["Started"] = 1] = "Started";
@@ -273,7 +273,7 @@ module.exports =
 	                    throw new Error('container not started');
 	                var addr = i_1.NetworkSettings.IPAddress;
 	                if (process.platform == 'darwin') {
-	                    addr = dockermachine().trim();
+	                    addr = module.__machine().trim();
 	                }
 	                if (!docker.check(addr + ":" + mod.check, 60)) {
 	                    throw new Error("Module " + mod.name + " timed out");
@@ -415,47 +415,64 @@ module.exports =
 	    }
 	}
 
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)(module)))
 
 /***/ },
 /* 2 */
 /***/ function(module, exports) {
 
-	module.exports = require("events");
+	module.exports = function(module) {
+		if(!module.webpackPolyfill) {
+			module.deprecate = function() {};
+			module.paths = [];
+			// module.parent = undefined by default
+			module.children = [];
+			module.webpackPolyfill = 1;
+		}
+		return module;
+	}
+
 
 /***/ },
 /* 3 */
 /***/ function(module, exports) {
 
-	module.exports = require("underscore");
+	module.exports = require("events");
 
 /***/ },
 /* 4 */
 /***/ function(module, exports) {
 
-	module.exports = require("util");
+	module.exports = require("underscore");
 
 /***/ },
 /* 5 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ function(module, exports) {
 
-	"use strict";
-	function __export(m) {
-	    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
-	}
-	__export(__webpack_require__(6));
-	__export(__webpack_require__(9));
-	__export(__webpack_require__(10));
-
+	module.exports = require("util");
 
 /***/ },
 /* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
+	function __export(m) {
+	    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+	}
+	__export(__webpack_require__(7));
+	__export(__webpack_require__(10));
+	__export(__webpack_require__(11));
+
+
+/***/ },
+/* 7 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
 	var builder_1 = __webpack_require__(1);
-	var types_1 = __webpack_require__(7);
-	var _ = __webpack_require__(3);
-	var docker = __webpack_require__(8);
+	var types_1 = __webpack_require__(8);
+	var _ = __webpack_require__(4);
+	var docker = __webpack_require__(9);
 	function buildTask(mod) {
 	    return new BuildTask(mod);
 	}
@@ -523,7 +540,7 @@ module.exports =
 
 
 /***/ },
-/* 7 */
+/* 8 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -581,19 +598,19 @@ module.exports =
 
 
 /***/ },
-/* 8 */
+/* 9 */
 /***/ function(module, exports) {
 
 	module.exports = require("docker");
 
 /***/ },
-/* 9 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var builder_1 = __webpack_require__(1);
-	var _ = __webpack_require__(3);
-	var docker = __webpack_require__(8);
+	var _ = __webpack_require__(4);
+	var docker = __webpack_require__(9);
 	function createTask(mod) {
 	    return new CreateTask(mod);
 	}
@@ -668,12 +685,12 @@ module.exports =
 
 
 /***/ },
-/* 10 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var builder_1 = __webpack_require__(1);
-	var docker = __webpack_require__(8);
+	var docker = __webpack_require__(9);
 	function startTask(mod) {
 	    return new StartTask(mod);
 	}
@@ -708,11 +725,11 @@ module.exports =
 
 
 /***/ },
-/* 11 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var _ = __webpack_require__(3);
+	var _ = __webpack_require__(4);
 	function sanitize(mod, platform, env) {
 	    if (mod.phase && mod.phase.indexOf(env) == -1) {
 	        //console.log(mod.name, mod.build, env, mod.phase)
