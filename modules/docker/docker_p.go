@@ -210,6 +210,10 @@ func getCreateOptions(o *otto.Object) (dockerclient.CreateContainerOptions, erro
 
 	hcfg := &dockerclient.HostConfig{}
 
+	if boolOr(o, "restart", false) {
+		hcfg.RestartPolicy = dockerclient.RestartUnlessStopped()
+	}
+
 	hcfg.AutoRemove = boolOr(o, "autoRemove", false)
 	hcfg.PublishAllPorts = boolOr(o, "publishAllPorts", false)
 	hcfg.Privileged = boolOr(o, "previleged", false)
